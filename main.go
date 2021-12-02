@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	Version = "v1.0.0"
+	Version = "v1.0.1"
 )
 
 var username = flag.String("u", "root", "mysql username")
@@ -261,17 +261,17 @@ func (a *Database) Curd() (bts []byte, err error) {
 	var names string
 	tmp.WriteString("\n")
 	add := `
-func (s *%s) Add() (int64, error) {
+func (s *%s) ADD() (int64, error) {
 	return gomysql.Db2().RightCreate(%sInsertSql, %s)
 }
 `
 	del := `
-func (s *%s) Del() (int64, error) {
+func (s *%s) DEL() (int64, error) {
 	return gomysql.Db2().RightExecute(%sDeleteSql, %s)
 }
 `
 	get := `
-func (s *%s) Get() (err error) {
+func (s *%s) GET() (err error) {
 	var tmp *%s
 	err = gomysql.Db2().RightQuery(func(rows *sql.Rows) (err error) {
 		tmp, err = %sScan(rows)
@@ -287,7 +287,7 @@ func (s *%s) Get() (err error) {
 }
 `
 	mod := `
-func (s *%s) Mod(m map[string]interface{}) (int64, error) {
+func (s *%s) MOD(m map[string]interface{}) (int64, error) {
 	length := len(m)
 	if length == 0 {
 		return 0, nil
@@ -305,17 +305,17 @@ func (s *%s) Mod(m map[string]interface{}) (int64, error) {
 }
 `
 	add1 := `
-func (s *%s) Add1(e *gomysql.Execs) (int64, error) {
+func (s *%s) ADD1(e *gomysql.Execs) (int64, error) {
 	return e.RightCreate(%sInsertSql, %s)
 }
 `
 	del1 := `
-func (s *%s) Del1(e *gomysql.Execs) (int64, error) {
+func (s *%s) DEL1(e *gomysql.Execs) (int64, error) {
 	return e.RightExecute(%sDeleteSql, %s)
 }
 `
 	get1 := `
-func (s *%s) Get1(e *gomysql.Execs) (err error) {
+func (s *%s) GET1(e *gomysql.Execs) (err error) {
 	var tmp *%s
 	err = e.RightQuery(func(rows *sql.Rows) (err error) {
 		tmp, err = %sScan(rows)
@@ -331,7 +331,7 @@ func (s *%s) Get1(e *gomysql.Execs) (err error) {
 }
 `
 	mod1 := `
-func (s *%s) Mod1(e *gomysql.Execs, m map[string]interface{}) (int64, error) {
+func (s *%s) MOD1(e *gomysql.Execs, m map[string]interface{}) (int64, error) {
 	length := len(m)
 	if length == 0 {
 		return 0, nil
@@ -357,26 +357,26 @@ func (s *%s) Mod1(e *gomysql.Execs, m map[string]interface{}) (int64, error) {
 			cols[index] = "?"
 		}
 		colsWithoutPriArgs := make([]string, length, length)
-		for i,v := range colsWithoutPri {
-			colsWithoutPriArgs[i] = fmt.Sprintf("s.%s",UnderlineToPascal(v))
+		for i, v := range colsWithoutPri {
+			colsWithoutPriArgs[i] = fmt.Sprintf("s.%s", UnderlineToPascal(v))
 		}
 		pri := t.FindColumnPrimaryKeyName()
 		// add
-		tmp.WriteString(fmt.Sprintf(add, names,names, strings.Join(colsWithoutPriArgs,", ")))
+		tmp.WriteString(fmt.Sprintf(add, names, names, strings.Join(colsWithoutPriArgs, ", ")))
 		// del
-		tmp.WriteString(fmt.Sprintf(del, names,names, fmt.Sprintf("s.%s",UnderlineToPascal(pri))))
+		tmp.WriteString(fmt.Sprintf(del, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
 		// mod
-		tmp.WriteString(fmt.Sprintf(mod, names,"`","`", fmt.Sprintf("s.%s",UnderlineToPascal(pri)),"`",*t.TableName,"`","`",pri,"`"))
+		tmp.WriteString(fmt.Sprintf(mod, names, "`", "`", fmt.Sprintf("s.%s", UnderlineToPascal(pri)), "`", *t.TableName, "`", "`", pri, "`"))
 		// get
-		tmp.WriteString(fmt.Sprintf(get, names,names, names,names, fmt.Sprintf("s.%s",UnderlineToPascal(pri))))
+		tmp.WriteString(fmt.Sprintf(get, names, names, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
 		// add1
-		tmp.WriteString(fmt.Sprintf(add1, names,names, strings.Join(colsWithoutPriArgs,", ")))
+		tmp.WriteString(fmt.Sprintf(add1, names, names, strings.Join(colsWithoutPriArgs, ", ")))
 		// del1
-		tmp.WriteString(fmt.Sprintf(del1, names,names, fmt.Sprintf("s.%s",UnderlineToPascal(pri))))
+		tmp.WriteString(fmt.Sprintf(del1, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
 		// mod1
-		tmp.WriteString(fmt.Sprintf(mod1, names,"`","`", fmt.Sprintf("s.%s",UnderlineToPascal(pri)),"`",*t.TableName,"`","`",pri,"`"))
+		tmp.WriteString(fmt.Sprintf(mod1, names, "`", "`", fmt.Sprintf("s.%s", UnderlineToPascal(pri)), "`", *t.TableName, "`", "`", pri, "`"))
 		// get1
-		tmp.WriteString(fmt.Sprintf(get1, names,names, names,names, fmt.Sprintf("s.%s",UnderlineToPascal(pri))))
+		tmp.WriteString(fmt.Sprintf(get1, names, names, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
 	}
 	bts = tmp.Bytes()
 	return
