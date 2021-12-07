@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	Version = "v1.0.1"
+	Version = "v1.0.2"
 )
 
 var username = flag.String("u", "root", "mysql username")
