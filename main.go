@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	Version = "v1.0.2"
+	Version = "v1.0.3"
 )
 
 var username = flag.String("u", "root", "mysql username")
@@ -29,6 +29,8 @@ var database = flag.String("d", "", "mysql database")
 var charset = flag.String("c", "utf8mb4", "mysql charset")
 
 var collation = flag.String("l", "utf8mb4_unicode_ci", "mysql collation")
+
+var filename = flag.String("f", "", "file name")
 
 var pkg = flag.String("k", "db", "golang package name")
 
@@ -86,8 +88,16 @@ import (
 		fer.Write(bts)
 	}
 	var fil *os.File
-	filename := fmt.Sprintf("%s.go", *database)
-	fil, err = os.Create(filename)
+	var name = ""
+	if *filename == "" {
+		name = *database
+	} else {
+		name = *filename
+	}
+	if !strings.HasSuffix(name, ".go") {
+		name = name + ".go"
+	}
+	fil, err = os.Create(name)
 	if err != nil {
 		return
 	}
@@ -96,7 +106,7 @@ import (
 	if err != nil {
 		return
 	}
-	err = FmtGoFile(filename)
+	err = FmtGoFile(name)
 	if err != nil {
 		return
 	}
@@ -281,7 +291,7 @@ func (s *%s) GET(execs *gomysql.Execs) (err error) {
 	var tmp *%s
 	err = execs.
 		Scan(func(rows *sql.Rows) (err error) {
-			tmp, err = %sScan(rows)
+			tmp, err = %sScanOne(rows)
 			return
 		}).
 		Prepare(%sSelectSql).
