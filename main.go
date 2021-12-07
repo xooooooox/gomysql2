@@ -261,22 +261,32 @@ func (a *Database) Curd() (bts []byte, err error) {
 	var names string
 	tmp.WriteString("\n")
 	add := `
-func (s *%s) ADD() (int64, error) {
-	return gomysql.Db2().RightCreate(%sInsertSql, %s)
+func (s *%s) ADD(execs *gomysql.Execs) (int64, error) {
+	return execs.
+		Prepare(%sInsertSql).
+		Args(%s).
+		Create()
 }
 `
 	del := `
-func (s *%s) DEL() (int64, error) {
-	return gomysql.Db2().RightExecute(%sDeleteSql, %s)
+func (s *%s) DEL(execs *gomysql.Execs) (int64, error) {
+	return execs.
+		Prepare(%sDeleteSql).
+		Args(%s).
+		Execute()
 }
 `
 	get := `
-func (s *%s) GET() (err error) {
+func (s *%s) GET(execs *gomysql.Execs) (err error) {
 	var tmp *%s
-	err = gomysql.Db2().RightQuery(func(rows *sql.Rows) (err error) {
-		tmp, err = %sScan(rows)
-		return
-	}, %sSelectSql, %s)
+	err = execs.
+		Scan(func(rows *sql.Rows) (err error) {
+			tmp, err = %sScan(rows)
+			return
+		}).
+		Prepare(%sSelectSql).
+		Args(%s).
+		Query()
 	if err != nil {
 		return
 	}
@@ -287,65 +297,16 @@ func (s *%s) GET() (err error) {
 }
 `
 	mod := `
-func (s *%s) MOD(m map[string]interface{}) (int64, error) {
-	length := len(m)
-	if length == 0 {
-		return 0, nil
+func (s *%s) MOD(execs *gomysql.Execs, modify map[string]interface{}) (int64, error) {
+	cols, args := gomysql.Modify(modify)
+	for key, val := range cols {
+		cols[key] = fmt.Sprintf("%%s%%s%%s = ?", gomysql.Backtick, val, gomysql.Backtick)
 	}
-	cols := make([]string, length, length)
-	args := make([]interface{}, length+1, length+1)
-	i := 0
-	for k, v := range m {
-		cols[i] = fmt.Sprintf("%s%%s%s = ?", k)
-		args[i] = v
-		i++
-	}
-	args[i] = %s
-	return gomysql.Db2().RightExecute(fmt.Sprintf("UPDATE %s%s%s SET %%s WHERE ( %s%s%s = ? );", strings.Join(cols, ", ")), args...)
-}
-`
-	add1 := `
-func (s *%s) ADD1(e *gomysql.Execs) (int64, error) {
-	return e.RightCreate(%sInsertSql, %s)
-}
-`
-	del1 := `
-func (s *%s) DEL1(e *gomysql.Execs) (int64, error) {
-	return e.RightExecute(%sDeleteSql, %s)
-}
-`
-	get1 := `
-func (s *%s) GET1(e *gomysql.Execs) (err error) {
-	var tmp *%s
-	err = e.RightQuery(func(rows *sql.Rows) (err error) {
-		tmp, err = %sScan(rows)
-		return
-	}, %sSelectSql, %s)
-	if err != nil {
-		return
-	}
-	if tmp != nil {
-		*s = *tmp
-	}
-	return
-}
-`
-	mod1 := `
-func (s *%s) MOD1(e *gomysql.Execs, m map[string]interface{}) (int64, error) {
-	length := len(m)
-	if length == 0 {
-		return 0, nil
-	}
-	cols := make([]string, length, length)
-	args := make([]interface{}, length+1, length+1)
-	i := 0
-	for k, v := range m {
-		cols[i] = fmt.Sprintf("%s%%s%s = ?", k)
-		args[i] = v
-		i++
-	}
-	args[i] = %s
-	return e.RightExecute(fmt.Sprintf("UPDATE %s%s%s SET %%s WHERE ( %s%s%s = ? );", strings.Join(cols, ", ")), args...)
+	args = append(args, %s)
+	return execs.
+		Prepare(fmt.Sprintf("UPDATE %s%s%s SET %%s WHERE ( %s%s%s = ? );", strings.Join(cols, ", "))).
+		Args(args...).
+		Execute()
 }
 `
 	for _, t := range a.Table {
@@ -366,17 +327,9 @@ func (s *%s) MOD1(e *gomysql.Execs, m map[string]interface{}) (int64, error) {
 		// del
 		tmp.WriteString(fmt.Sprintf(del, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
 		// mod
-		tmp.WriteString(fmt.Sprintf(mod, names, "`", "`", fmt.Sprintf("s.%s", UnderlineToPascal(pri)), "`", *t.TableName, "`", "`", pri, "`"))
+		tmp.WriteString(fmt.Sprintf(mod, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri)), mysql.Backtick, *t.TableName, mysql.Backtick, mysql.Backtick, pri, mysql.Backtick))
 		// get
 		tmp.WriteString(fmt.Sprintf(get, names, names, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
-		// add1
-		tmp.WriteString(fmt.Sprintf(add1, names, names, strings.Join(colsWithoutPriArgs, ", ")))
-		// del1
-		tmp.WriteString(fmt.Sprintf(del1, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
-		// mod1
-		tmp.WriteString(fmt.Sprintf(mod1, names, "`", "`", fmt.Sprintf("s.%s", UnderlineToPascal(pri)), "`", *t.TableName, "`", "`", pri, "`"))
-		// get1
-		tmp.WriteString(fmt.Sprintf(get1, names, names, names, names, fmt.Sprintf("s.%s", UnderlineToPascal(pri))))
 	}
 	bts = tmp.Bytes()
 	return
